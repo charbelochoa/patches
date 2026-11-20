@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="#F8FAFD"/>
+  <rect x="42" y="42" width="428" height="428" rx="68" fill="#FFFFFF" stroke="#282C34" stroke-width="12"/>
+  <!-- Dashed grid lines -->
+  <line x1="184.6" y1="48" x2="184.6" y2="464" stroke="#C3C3C3" stroke-width="4" stroke-dasharray="12 10"/>
+  <line x1="327.3" y1="48" x2="327.3" y2="464" stroke="#C3C3C3" stroke-width="4" stroke-dasharray="12 10"/>
+  <line x1="48" y1="184.6" x2="464" y2="184.6" stroke="#C3C3C3" stroke-width="4" stroke-dasharray="12 10"/>
+  <line x1="48" y1="327.3" x2="464" y2="327.3" stroke="#C3C3C3" stroke-width="4" stroke-dasharray="12 10"/>
+  <!-- Red 2x1 wide patch (top-left) -->
+  <rect x="54" y="54" width="265" height="122" rx="22" fill="#E40101" fill-opacity="0.38" stroke="#E40101" stroke-width="10"/>
+  <rect x="64" y="79" width="104" height="72" rx="14" fill="#E40101"/>
+  <text x="116" y="128" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="44" fill="#FFFFFF" text-anchor="middle">2</text>
+  <!-- Orange 1x2 tall patch (top-right) -->
+  <rect x="335" y="54" width="123" height="265" rx="22" fill="#EF6C00" fill-opacity="0.38" stroke="#EF6C00" stroke-width="10"/>
+  <rect x="360" y="64" width="72" height="104" rx="14" fill="#EF6C00"/>
+  <!-- Green 1x2 tall patch (bottom-left) -->
+  <rect x="54" y="193" width="123" height="265" rx="22" fill="#00A651" fill-opacity="0.38" stroke="#00A651" stroke-width="10"/>
+  <rect x="79" y="344" width="72" height="104" rx="14" fill="#00A651"/>
+  <text x="115" y="410" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="44" fill="#FFFFFF" text-anchor="middle">2</text>
+  <!-- Purple square clue (center) -->
+  <rect x="211" y="211" width="90" height="90" rx="16" fill="#7C4DFF"/>
+  <!-- Blue 2x1 wide patch (bottom-right) -->
+  <rect x="193" y="335" width="265" height="123" rx="22" fill="#00AFFF" fill-opacity="0.38" stroke="#00AFFF" stroke-width="10"/>
+  <rect x="344" y="360" width="104" height="72" rx="14" fill="#00AFFF"/>
+</svg>

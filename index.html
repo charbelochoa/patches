@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es" dir="ltr" translate="no" data-preferred-text-scale="true">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>Patches</title>
+  <meta name="theme-color" content="#F8FAFD"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Patches"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <link rel="icon" type="image/svg+xml" href="./icon.svg"/>
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png"/>
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon-64.png"/>
+  <link rel="shortcut icon" href="./favicon.ico"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png"/>
+  <link rel="manifest" href="./manifest.json"/>
+  <link type="text/css" rel="stylesheet" href="./Ducw_qTn.css"/>
+  <style id="kids-loader-style">
+    #kids-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: radial-gradient(circle at 50% 35%, #FFF9D2 0%, #B8ECFF 52%, #7CCBFF 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: "Arial Rounded MT Bold", "Nunito", "Fredoka", system-ui, -apple-system, sans-serif;
+      transition: transform 0.55s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.45s ease;
+    }
+    #kids-loader.kl-exit {
+      transform: scale(1.22);
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* Sunburst rays in background */
+    .kl-rays {
+      position: absolute;
+      width: 200vmax;
+      height: 200vmax;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: repeating-conic-gradient(
+        from 0deg,
+        rgba(255, 255, 255, 0.28) 0deg 12deg,
+        transparent 12deg 24deg
+      );
+      animation: kl-spin 22s linear infinite;
+      pointer-events: none;
+    }
+    /* Floating cartoon clouds & stars */
+    .kl-cloud {
+      position: absolute;
+      fill: #FFFFFF;
+      opacity: 0.88;
+      filter: drop-shadow(0 6px 0 rgba(0, 115, 177, 0.12));
+      animation: kl-float 4s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    .kl-c1 { width: 130px; top: 8%; left: 6%; animation-duration: 3.6s; }
+    .kl-c2 { width: 110px; top: 14%; right: 6%; animation-duration: 4.4s; animation-delay: -1.5s; }
+    .kl-c3 { width: 95px; bottom: 16%; left: 8%; animation-duration: 4.1s; animation-delay: -0.8s; }
+    .kl-c4 { width: 115px; bottom: 20%; right: 7%; animation-duration: 3.8s; animation-delay: -2.2s; }
+
+    /* Bouncy 3D Cartoon Letters */
+    .kl-title {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+      perspective: 500px;
+    }
+    .kl-let {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 54px;
+      border-radius: 14px;
+      font-size: 32px;
+      font-weight: 900;
+      color: #FFFFFF;
+      border: 3.5px solid #22252A;
+      box-shadow: 0 6px 0 #22252A, inset 0 4px 0 rgba(255,255,255,0.45);
+      text-shadow: 0 2px 0 rgba(0,0,0,0.3);
+      animation: kl-letter-bounce 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .kl-let:nth-child(1) { background: #E40101; animation-delay: 0.00s; transform: rotate(-5deg); }
+    .kl-let:nth-child(2) { background: #EF6C00; animation-delay: 0.10s; transform: rotate(3deg); }
+    .kl-let:nth-child(3) { background: #C49000; animation-delay: 0.20s; transform: rotate(-3deg); }
+    .kl-let:nth-child(4) { background: #00A651; animation-delay: 0.30s; transform: rotate(4deg); }
+    .kl-let:nth-child(5) { background: #00AFFF; animation-delay: 0.40s; transform: rotate(-4deg); }
+    .kl-let:nth-child(6) { background: #7C4DFF; animation-delay: 0.50s; transform: rotate(3deg); }
+    .kl-let:nth-child(7) { background: #E91E63; animation-delay: 0.60s; transform: rotate(-4deg); }
+
+    /* Cartoon Stage SVG */
+    .kl-stage-wrap {
+      position: relative;
+      z-index: 3;
+      width: min(310px, 82vw);
+      height: min(310px, 82vw);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .kl-stage-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      filter: drop-shadow(0 14px 20px rgba(0, 60, 110, 0.22));
+    }
+
+    /* Animated Patch Mascots jumping into the board */
+    .kl-board-group {
+      transform-origin: 150px 150px;
+      animation: kl-board-pop 3s ease-in-out infinite;
+    }
+    .kl-mascot-red {
+      transform-origin: 115px 80px;
+      animation: kl-hop-tl 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .kl-mascot-orange {
+      transform-origin: 220px 115px;
+      animation: kl-hop-tr 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .kl-mascot-green {
+      transform-origin: 80px 185px;
+      animation: kl-hop-bl 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .kl-mascot-blue {
+      transform-origin: 185px 220px;
+      animation: kl-hop-br 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .kl-mascot-purple {
+      transform-origin: 150px 150px;
+      animation: kl-hop-center 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+    .kl-eyes {
+      transform-origin: center;
+      animation: kl-blink 2.4s infinite;
+    }
+    .kl-star-burst {
+      transform-origin: 150px 150px;
+      animation: kl-stars-pop 3s ease-out infinite;
+    }
+
+    /* Candy-striped kids game loading bar */
+    .kl-bar-shell {
+      position: relative;
+      z-index: 3;
+      width: min(260px, 74vw);
+      height: 26px;
+      background: #FFFFFF;
+      border: 4px solid #22252A;
+      border-radius: 999px;
+      padding: 2px;
+      box-shadow: 0 6px 0 #22252A;
+      margin-top: 14px;
+      overflow: hidden;
+    }
+    .kl-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: repeating-linear-gradient(
+        -45deg,
+        #00A651 0px 14px,
+        #2ECC71 14px 28px
+      );
+      background-size: 40px 40px;
+      box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.45);
+      animation:
+        kl-bar-load 2.7s cubic-bezier(0.25, 0.9, 0.35, 1) forwards,
+        kl-stripes 0.7s linear infinite;
+    }
+
+    @keyframes kl-spin {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    @keyframes kl-float {
+      from { transform: translateY(-8px) scale(0.98); }
+      to { transform: translateY(8px) scale(1.03); }
+    }
+    @keyframes kl-letter-bounce {
+      0%, 100% { transform: translateY(0) scale(1, 1); }
+      30% { transform: translateY(-14px) scale(0.92, 1.12); }
+      55% { transform: translateY(3px) scale(1.12, 0.88); }
+      75% { transform: translateY(-4px) scale(0.97, 1.03); }
+    }
+    @keyframes kl-board-pop {
+      0% { transform: scale(0.85) rotate(-3deg); }
+      20% { transform: scale(1.03) rotate(1deg); }
+      70% { transform: scale(1) rotate(0deg); }
+      82% { transform: scale(1.08) rotate(-2deg); }
+      92%, 100% { transform: scale(1) rotate(0deg); }
+    }
+    @keyframes kl-hop-tl {
+      0%, 8% { transform: translate(-90px, -85px) rotate(-28deg) scale(0.6); opacity: 0; }
+      26% { transform: translate(6px, 6px) rotate(6deg) scale(1.08, 0.9); opacity: 1; }
+      36%, 78% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+      85% { transform: translate(0, -8px) scale(1.05); opacity: 1; }
+      95%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+    }
+    @keyframes kl-hop-tr {
+      0%, 18% { transform: translate(95px, -80px) rotate(30deg) scale(0.6); opacity: 0; }
+      36% { transform: translate(-6px, 6px) rotate(-6deg) scale(0.9, 1.08); opacity: 1; }
+      46%, 78% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+      86% { transform: translate(0, -8px) scale(1.05); opacity: 1; }
+      95%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+    }
+    @keyframes kl-hop-bl {
+      0%, 28% { transform: translate(-95px, 85px) rotate(-25deg) scale(0.6); opacity: 0; }
+      46% { transform: translate(6px, -6px) rotate(5deg) scale(0.9, 1.08); opacity: 1; }
+      56%, 78% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+      87% { transform: translate(0, -8px) scale(1.05); opacity: 1; }
+      95%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+    }
+    @keyframes kl-hop-br {
+      0%, 38% { transform: translate(95px, 85px) rotate(25deg) scale(0.6); opacity: 0; }
+      56% { transform: translate(-6px, -6px) rotate(-5deg) scale(1.08, 0.9); opacity: 1; }
+      66%, 78% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+      88% { transform: translate(0, -8px) scale(1.05); opacity: 1; }
+      95%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+    }
+    @keyframes kl-hop-center {
+      0%, 48% { transform: translate(0, -130px) scale(0.4) rotate(180deg); opacity: 0; }
+      68% { transform: translate(0, 6px) scale(1.18, 0.84) rotate(0deg); opacity: 1; }
+      78% { transform: translate(0, 0) scale(1); opacity: 1; }
+      85% { transform: translate(0, -10px) scale(1.1); opacity: 1; }
+      95%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+    }
+    @keyframes kl-blink {
+      0%, 44%, 50%, 94%, 100% { transform: scaleY(1); }
+      47%, 97% { transform: scaleY(0.12); }
+    }
+    @keyframes kl-stars-pop {
+      0%, 66% { transform: scale(0.3); opacity: 0; }
+      78% { transform: scale(1.15); opacity: 1; }
+      92% { transform: scale(1.28); opacity: 0.9; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+    @keyframes kl-bar-load {
+      0% { width: 6%; }
+      35% { width: 42%; }
+      70% { width: 82%; }
+      100% { width: 100%; }
+    }
+    @keyframes kl-stripes {
+      from { background-position: 0 0; }
+      to { background-position: 40px 0; }
+    }
+  </style>
+</head>
+<body class="bsjlop" data-body-class="bsjlop" data-color-scheme="light">
+  <!-- Animated Kids' Game Video Loading Screen -->
+  <div id="kids-loader" aria-hidden="true">
+    <div class="kl-rays"></div>
+
+    <!-- Cartoon Clouds -->
+    <svg class="kl-cloud kl-c1" viewBox="0 0 120 60">
+      <path d="M25,50 h70 a18,18 0 0,0 4,-35 a24,24 0 0,0 -45,-8 a20,20 0 0,0 -32,16 a15,15 0 0,0 3,27 z"/>
+    </svg>
+    <svg class="kl-cloud kl-c2" viewBox="0 0 120 60">
+      <path d="M25,50 h70 a18,18 0 0,0 4,-35 a24,24 0 0,0 -45,-8 a20,20 0 0,0 -32,16 a15,15 0 0,0 3,27 z"/>
+    </svg>
+    <svg class="kl-cloud kl-c3" viewBox="0 0 120 60">
+      <path d="M25,50 h70 a18,18 0 0,0 4,-35 a24,24 0 0,0 -45,-8 a20,20 0 0,0 -32,16 a15,15 0 0,0 3,27 z"/>
+    </svg>
+    <svg class="kl-cloud kl-c4" viewBox="0 0 120 60">
+      <path d="M25,50 h70 a18,18 0 0,0 4,-35 a24,24 0 0,0 -45,-8 a20,20 0 0,0 -32,16 a15,15 0 0,0 3,27 z"/>
+    </svg>
+
+    <!-- 3D Bouncy Letters -->
+    <div class="kl-title">
+      <span class="kl-let">P</span>
+      <span class="kl-let">A</span>
+      <span class="kl-let">T</span>
+      <span class="kl-let">C</span>
+      <span class="kl-let">H</span>
+      <span class="kl-let">E</span>
+      <span class="kl-let">S</span>
+    </div>
+
+    <!-- Animated Cartoon Stage with Jumping Patch Mascots -->
+    <div class="kl-stage-wrap">
+      <svg class="kl-stage-svg" viewBox="0 0 300 300">
+        <!-- Starburst celebration particles -->
+        <g class="kl-star-burst">
+          <polygon points="25,35 30,22 43,18 31,12 27,0 20,11 7,13 18,22" fill="#FFD700" stroke="#22252A" stroke-width="2.5"/>
+          <polygon points="272,38 277,25 290,21 278,15 274,3 267,14 254,16 265,25" fill="#FF4081" stroke="#22252A" stroke-width="2.5"/>
+          <polygon points="278,265 283,252 296,248 284,242 280,230 273,241 260,243 271,252" fill="#FFD700" stroke="#22252A" stroke-width="2.5"/>
+          <polygon points="22,262 27,249 40,245 28,239 24,227 17,238 4,240 15,249" fill="#00E676" stroke="#22252A" stroke-width="2.5"/>
+          <circle cx="150" cy="10" r="7" fill="#FFD700" stroke="#22252A" stroke-width="2.5"/>
+          <circle cx="290" cy="150" r="7" fill="#00AFFF" stroke="#22252A" stroke-width="2.5"/>
+          <circle cx="10" cy="150" r="7" fill="#E40101" stroke="#22252A" stroke-width="2.5"/>
+        </g>
+
+        <g class="kl-board-group">
+          <!-- Cartoon 3D Board Base Shadow -->
+          <rect x="34" y="42" width="232" height="232" rx="34" fill="#22252A"/>
+          <!-- Board White Frame -->
+          <rect x="34" y="34" width="232" height="232" rx="32" fill="#FFFFFF" stroke="#22252A" stroke-width="7"/>
+
+          <!-- Dashed Inner Grid Lines (3x3) -->
+          <line x1="111.3" y1="38" x2="111.3" y2="262" stroke="#D0D7DE" stroke-width="3" stroke-dasharray="7 6"/>
+          <line x1="188.6" y1="38" x2="188.6" y2="262" stroke="#D0D7DE" stroke-width="3" stroke-dasharray="7 6"/>
+          <line x1="38" y1="111.3" x2="262" y2="111.3" stroke="#D0D7DE" stroke-width="3" stroke-dasharray="7 6"/>
+          <line x1="38" y1="188.6" x2="262" y2="188.6" stroke="#D0D7DE" stroke-width="3" stroke-dasharray="7 6"/>
+
+          <!-- 1. RED WIDE PATCH MASCOT (Top-Left 2x1) -->
+          <g class="kl-mascot-red">
+            <rect x="44" y="44" width="138" height="61" rx="16" fill="#FF6B6B" stroke="#E40101" stroke-width="5"/>
+            <rect x="48" y="48" width="130" height="22" rx="10" fill="#FFFFFF" fill-opacity="0.28"/>
+            <!-- Number Badge -->
+            <rect x="53" y="55" width="38" height="38" rx="10" fill="#E40101" stroke="#22252A" stroke-width="3"/>
+            <text x="72" y="82" font-size="23" font-weight="900" fill="#FFFFFF" text-anchor="middle">2</text>
+            <!-- Cute Cartoon Face -->
+            <g class="kl-eyes">
+              <circle cx="118" cy="70" r="8.5" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="119.5" cy="70" r="4.2" fill="#22252A"/>
+              <circle cx="117.5" cy="68" r="1.8" fill="#FFFFFF"/>
+              <circle cx="148" cy="70" r="8.5" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="149.5" cy="70" r="4.2" fill="#22252A"/>
+              <circle cx="147.5" cy="68" r="1.8" fill="#FFFFFF"/>
+            </g>
+            <!-- Rosy cheeks & Happy Smile -->
+            <ellipse cx="107" cy="79" rx="4.5" ry="2.8" fill="#FF1744" opacity="0.55"/>
+            <ellipse cx="159" cy="79" rx="4.5" ry="2.8" fill="#FF1744" opacity="0.55"/>
+            <path d="M126,79 Q133,89 140,79" fill="none" stroke="#22252A" stroke-width="3.2" stroke-linecap="round"/>
+          </g>
+
+          <!-- 2. ORANGE TALL PATCH MASCOT (Top-Right 1x2) -->
+          <g class="kl-mascot-orange">
+            <rect x="195" y="44" width="61" height="138" rx="16" fill="#FFB74D" stroke="#EF6C00" stroke-width="5"/>
+            <rect x="199" y="48" width="53" height="25" rx="10" fill="#FFFFFF" fill-opacity="0.3"/>
+            <!-- Cute Cartoon Face -->
+            <g class="kl-eyes">
+              <circle cx="214" cy="95" r="8" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="213" cy="95" r="4" fill="#22252A"/>
+              <circle cx="211.5" cy="93" r="1.6" fill="#FFFFFF"/>
+              <circle cx="238" cy="95" r="8" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="237" cy="95" r="4" fill="#22252A"/>
+              <circle cx="235.5" cy="93" r="1.6" fill="#FFFFFF"/>
+            </g>
+            <ellipse cx="205" cy="105" rx="4" ry="2.5" fill="#E65100" opacity="0.45"/>
+            <ellipse cx="247" cy="105" rx="4" ry="2.5" fill="#E65100" opacity="0.45"/>
+            <path d="M218,106 Q226,118 234,106 Z" fill="#22252A"/>
+            <!-- Number Badge -->
+            <rect x="207" y="130" width="38" height="38" rx="10" fill="#EF6C00" stroke="#22252A" stroke-width="3"/>
+            <text x="226" y="157" font-size="23" font-weight="900" fill="#FFFFFF" text-anchor="middle">2</text>
+          </g>
+
+          <!-- 3. GREEN TALL PATCH MASCOT (Bottom-Left 1x2) -->
+          <g class="kl-mascot-green">
+            <rect x="44" y="118" width="61" height="138" rx="16" fill="#5CE194" stroke="#00A651" stroke-width="5"/>
+            <rect x="48" y="122" width="53" height="25" rx="10" fill="#FFFFFF" fill-opacity="0.3"/>
+            <!-- Number Badge -->
+            <rect x="55" y="130" width="38" height="38" rx="10" fill="#00A651" stroke="#22252A" stroke-width="3"/>
+            <text x="74" y="157" font-size="23" font-weight="900" fill="#FFFFFF" text-anchor="middle">2</text>
+            <!-- Cute Cartoon Face -->
+            <g class="kl-eyes">
+              <circle cx="62" cy="202" r="8" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="63.5" cy="202" r="4" fill="#22252A"/>
+              <circle cx="62" cy="200" r="1.6" fill="#FFFFFF"/>
+              <circle cx="86" cy="202" r="8" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="87.5" cy="202" r="4" fill="#22252A"/>
+              <circle cx="86" cy="200" r="1.6" fill="#FFFFFF"/>
+            </g>
+            <ellipse cx="53" cy="212" rx="4" ry="2.5" fill="#FF5252" opacity="0.45"/>
+            <ellipse cx="95" cy="212" rx="4" ry="2.5" fill="#FF5252" opacity="0.45"/>
+            <path d="M67,213 Q74,223 81,213" fill="none" stroke="#22252A" stroke-width="3.2" stroke-linecap="round"/>
+          </g>
+
+          <!-- 4. BLUE WIDE PATCH MASCOT (Bottom-Right 2x1) -->
+          <g class="kl-mascot-blue">
+            <rect x="118" y="195" width="138" height="61" rx="16" fill="#68D4FF" stroke="#00AFFF" stroke-width="5"/>
+            <rect x="122" y="199" width="130" height="22" rx="10" fill="#FFFFFF" fill-opacity="0.3"/>
+            <!-- Cute Cartoon Face -->
+            <g class="kl-eyes">
+              <circle cx="152" cy="222" r="8.5" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="152" cy="221" r="4.2" fill="#22252A"/>
+              <circle cx="150" cy="219" r="1.8" fill="#FFFFFF"/>
+              <circle cx="182" cy="222" r="8.5" fill="#FFFFFF" stroke="#22252A" stroke-width="2.8"/>
+              <circle cx="182" cy="221" r="4.2" fill="#22252A"/>
+              <circle cx="180" cy="219" r="1.8" fill="#FFFFFF"/>
+            </g>
+            <ellipse cx="141" cy="231" rx="4.5" ry="2.8" fill="#FF4081" opacity="0.5"/>
+            <ellipse cx="193" cy="231" rx="4.5" ry="2.8" fill="#FF4081" opacity="0.5"/>
+            <path d="M160,231 Q167,241 174,231" fill="none" stroke="#22252A" stroke-width="3.2" stroke-linecap="round"/>
+            <!-- Number Badge -->
+            <rect x="208" y="207" width="38" height="38" rx="10" fill="#00AFFF" stroke="#22252A" stroke-width="3"/>
+            <text x="227" y="234" font-size="23" font-weight="900" fill="#FFFFFF" text-anchor="middle">2</text>
+          </g>
+
+          <!-- 5. PURPLE SQUARE PATCH MASCOT (Center 1x1) -->
+          <g class="kl-mascot-purple">
+            <rect x="118" y="118" width="64" height="64" rx="16" fill="#A682FF" stroke="#7C4DFF" stroke-width="5"/>
+            <rect x="122" y="122" width="56" height="20" rx="8" fill="#FFFFFF" fill-opacity="0.32"/>
+            <g class="kl-eyes">
+              <circle cx="138" cy="146" r="7.5" fill="#FFFFFF" stroke="#22252A" stroke-width="2.6"/>
+              <circle cx="138" cy="146" r="3.8" fill="#22252A"/>
+              <circle cx="136.5" cy="144.5" r="1.5" fill="#FFFFFF"/>
+              <circle cx="162" cy="146" r="7.5" fill="#FFFFFF" stroke="#22252A" stroke-width="2.6"/>
+              <circle cx="162" cy="146" r="3.8" fill="#22252A"/>
+              <circle cx="160.5" cy="144.5" r="1.5" fill="#FFFFFF"/>
+            </g>
+            <path d="M143,159 Q150,168 157,159" fill="none" stroke="#22252A" stroke-width="3" stroke-linecap="round"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Candy-Striped Progress Bar -->
+    <div class="kl-bar-shell">
+      <div class="kl-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- Exact LinkedIn Root Mount -->
+  <div id="root" data-strictmode="true"></div>
+
+  <script>
+    (function setupKidsLoader() {
+      const loader = document.getElementById("kids-loader");
+      if (!loader) return;
+      let dismissed = false;
+      function dismiss() {
+        if (dismissed) return;
+        dismissed = true;
+        loader.classList.add("kl-exit");
+        setTimeout(() => {
+          loader.remove();
+          document.getElementById("kids-loader-style")?.remove();
+        }, 560);
+      }
+      loader.addEventListener("click", dismiss);
+      setTimeout(dismiss, 2750);
+    })();
+  </script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
