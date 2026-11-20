@@ -11,8 +11,8 @@ import {
   lix_context_exports,
 } from "./CBqBFjoY.js";
 import { DesignSystemImage } from "./C6Zpjmf6.js";
-import { Patches, Timer } from "./dt4KZ7QW.js";
-import { PUZZLES_BANK } from "./puzzles-data.js";
+import { Patches, Timer } from "./dt4KZ7QW.js?v=20261120";
+import { PUZZLES_BANK } from "./puzzles-data.js?v=20261120";
 
 const React = __toESM(require_react(), 1);
 const ReactDOMClient = require_client();
