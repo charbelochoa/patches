@@ -308,7 +308,8 @@ const DIFF_MODES = [
 ];
 
 function App() {
-  const [screen, setScreen] = React.useState("game"); // "hub" | "game"
+  const [screen, setScreen] = React.useState("hub"); // "hub" | "game"
+  const [hasStartedOnce, setHasStartedOnce] = React.useState(false);
   const [mode, setMode] = React.useState("Progressive");
   const [queue, setQueue] = React.useState(() => buildQueueForMode("Progressive"));
   const [qIndex, setQIndex] = React.useState(0);
@@ -351,6 +352,7 @@ function App() {
     setTimeElapsed(0);
     setIsTimerPaused(false);
     setMenuOpen(false);
+    setHasStartedOnce(true);
     setInstanceKey((k) => k + 1);
     setScreen("game");
   }, []);
@@ -972,8 +974,8 @@ function App() {
                                             }),
                                           }),
                                         }),
-                                        !hasWon &&
-                                          timeElapsed > 0 &&
+                                        hasStartedOnce &&
+                                          !hasWon &&
                                           jsx("button", {
                                             type: "button",
                                             className:
