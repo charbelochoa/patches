@@ -655,37 +655,23 @@ function App() {
                                   }),
                                 ],
                               }),
-                              // LinkedIn Icon + Patches title
+                              // Patches title (without LinkedIn logo)
                               jsx("div", {
                                 className:
                                   "bsjl5w bsjayy bsjiun bsjj1t bsjj03 bsjj1j bsjixb bsjk56 bsjk5x bsjl5q",
-                                children: jsxs("div", {
+                                children: jsx("div", {
                                   className:
                                     "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
-                                  children: [
-                                    jsx(DesignSystemImage, {
-                                      display: "block",
-                                      imageId: 215,
-                                      "aria-label": "Linkedin",
-                                      "aria-hidden": false,
-                                      enableForcedColorStyles: false,
-                                      offsetEnd: "0.25x",
-                                      height: "3x",
-                                      width: "3x",
-                                      flexShrink: 0,
-                                      className: "bsjl9m",
-                                    }),
-                                    jsx("div", {
-                                      className: "bsjlis bsjgoj bsjljc",
-                                      children: jsx("p", {
-                                        className:
-                                          "bsjlje bsjlo7 bsjlr6 bsjlr5 bsjlr4 bsja29 bsjljd bsjht3 bsjlrm",
-                                        children: jsx("span", {
-                                          children: "Patches",
-                                        }),
+                                  children: jsx("div", {
+                                    className: "bsjlis bsjgoj bsjljc",
+                                    children: jsx("p", {
+                                      className:
+                                        "bsjlje bsjlo7 bsjlr6 bsjlr5 bsjlr4 bsja29 bsjljd bsjht3 bsjlrm",
+                                      children: jsx("span", {
+                                        children: "Patches",
                                       }),
                                     }),
-                                  ],
+                                  }),
                                 }),
                               }),
                             ],
