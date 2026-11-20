@@ -17,7 +17,7 @@ import { PUZZLES_BANK } from "./puzzles-data.js";
 const React = __toESM(require_react(), 1);
 const ReactDOMClient = require_client();
 const jsxRuntime = require_jsx_runtime();
-const { jsx, jsxs, Fragment } = jsxRuntime;
+const { jsx, jsxs } = jsxRuntime;
 
 const { I18nContext } = i18n_context_exports;
 const { TrackingContext } = context_exports$1;
@@ -192,58 +192,62 @@ function shuffleArray(arr) {
   return copy;
 }
 
-// Build an escalating queue from Easy -> Medium -> Hard -> Expert at random!
-function buildEscalatingRandomQueue() {
+// Build queue according to chosen mode:
+// "Progressive" -> Easy -> Medium -> Hard -> Expert in waves
+// "Easy" | "Medium" | "Hard" | "Expert" -> shuffled levels of that difficulty
+function buildQueueForMode(mode) {
+  if (mode === "Easy" || mode === "Medium" || mode === "Hard" || mode === "Expert") {
+    const tier = shuffleArray(PUZZLES_BANK.filter((p) => p.difficulty === mode));
+    if (mode === "Easy") {
+      const p246Idx = tier.findIndex((p) => p.puzzleId === 246);
+      if (p246Idx > 0) {
+        const [p246] = tier.splice(p246Idx, 1);
+        tier.unshift(p246);
+      }
+    }
+    return tier.map((p) => p.puzzleId);
+  }
+
+  // Default: "Progressive" (Easy -> Medium -> Hard -> Expert at random)
   const easy = shuffleArray(PUZZLES_BANK.filter((p) => p.difficulty === "Easy"));
   const medium = shuffleArray(PUZZLES_BANK.filter((p) => p.difficulty === "Medium"));
   const hard = shuffleArray(PUZZLES_BANK.filter((p) => p.difficulty === "Hard"));
   const expert = shuffleArray(PUZZLES_BANK.filter((p) => p.difficulty === "Expert"));
 
-  // Put #246 (the exact screenshot puzzle) first in Easy so the initial screen matches the screenshot 100%,
-  // followed by random Easy -> Medium -> Hard -> Expert waves!
   const p246Idx = easy.findIndex((p) => p.puzzleId === 246);
   if (p246Idx > 0) {
     const [p246] = easy.splice(p246Idx, 1);
     easy.unshift(p246);
   }
 
-  // Group in progressive waves of 3 levels per tier (3 Easy -> 3 Medium -> 3 Hard -> 3 Expert),
-  // and also keep full tiers ordered so every run climbs smoothly from Easy to Hard at random.
   const queue = [];
   const waveSize = 3;
   const maxWaves = Math.ceil(
     Math.max(easy.length, medium.length, hard.length, expert.length) / waveSize
   );
   for (let w = 0; w < maxWaves; w++) {
-    const eSlice = easy.slice(w * waveSize, (w + 1) * waveSize);
-    const mSlice = medium.slice(w * waveSize, (w + 1) * waveSize);
-    const hSlice = hard.slice(w * waveSize, (w + 1) * waveSize);
-    const xSlice = expert.slice(w * waveSize, (w + 1) * waveSize);
-    queue.push(...eSlice, ...mSlice, ...hSlice, ...xSlice);
+    queue.push(
+      ...easy.slice(w * waveSize, (w + 1) * waveSize),
+      ...medium.slice(w * waveSize, (w + 1) * waveSize),
+      ...hard.slice(w * waveSize, (w + 1) * waveSize),
+      ...expert.slice(w * waveSize, (w + 1) * waveSize)
+    );
   }
   return queue.map((p) => p.puzzleId);
 }
 
-const STORAGE_QUEUE_KEY = "patches_random_queue_v1";
-const STORAGE_INDEX_KEY = "patches_random_idx_v1";
-
-function getInitialQueueAndIndex() {
+const STORAGE_SOLVED_KEY = "patches_solved_ids_v2";
+function loadSolvedSet() {
   try {
-    const savedQ = JSON.parse(localStorage.getItem(STORAGE_QUEUE_KEY) || "null");
-    const savedIdx = parseInt(localStorage.getItem(STORAGE_INDEX_KEY) || "0", 10);
-    if (Array.isArray(savedQ) && savedQ.length === PUZZLES_BANK.length) {
-      return {
-        queue: savedQ,
-        index: isNaN(savedIdx) || savedIdx < 0 || savedIdx >= savedQ.length ? 0 : savedIdx,
-      };
-    }
-  } catch {}
-  const q = buildEscalatingRandomQueue();
+    return new Set(JSON.parse(localStorage.getItem(STORAGE_SOLVED_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+function saveSolvedSet(setObj) {
   try {
-    localStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(q));
-    localStorage.setItem(STORAGE_INDEX_KEY, "0");
+    localStorage.setItem(STORAGE_SOLVED_KEY, JSON.stringify([...setObj]));
   } catch {}
-  return { queue: q, index: 0 };
 }
 
 function makeLinkedInGamePayload(puzzle, instanceSeed) {
@@ -295,10 +299,19 @@ function makeLinkedInGamePayload(puzzle, instanceSeed) {
   };
 }
 
+const DIFF_MODES = [
+  { id: "Progressive", es: "Al azar (Fácil → Difícil)", en: "Random (Easy → Hard)", color: "#0073B1", count: 200 },
+  { id: "Easy", es: "Fácil", en: "Easy", color: "#00A651", count: 50 },
+  { id: "Medium", es: "Medio", en: "Medium", color: "#00AFFF", count: 50 },
+  { id: "Hard", es: "Difícil", en: "Hard", color: "#EF6C00", count: 50 },
+  { id: "Expert", es: "Experto", en: "Expert", color: "#7C4DFF", count: 50 },
+];
+
 function App() {
-  const init = React.useMemo(() => getInitialQueueAndIndex(), []);
-  const [queue, setQueue] = React.useState(init.queue);
-  const [qIndex, setQIndex] = React.useState(init.index);
+  const [screen, setScreen] = React.useState("game"); // "hub" | "game"
+  const [mode, setMode] = React.useState("Progressive");
+  const [queue, setQueue] = React.useState(() => buildQueueForMode("Progressive"));
+  const [qIndex, setQIndex] = React.useState(0);
   const [instanceKey, setInstanceKey] = React.useState(1);
   const [hasWon, setHasWon] = React.useState(false);
   const [isTimerHidden, setIsTimerHidden] = React.useState(false);
@@ -306,6 +319,7 @@ function App() {
   const [timeElapsed, setTimeElapsed] = React.useState(0);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [locale, setLocale] = React.useState("es_ES");
+  const [solvedIds, setSolvedIds] = React.useState(() => loadSolvedSet());
 
   const currentPuzzleId = queue[qIndex] ?? PUZZLES_BANK[0].puzzleId;
   const currentPuzzle = React.useMemo(
@@ -328,6 +342,19 @@ function App() {
     [locale]
   );
 
+  const startNewGameWithMode = React.useCallback((selectedMode) => {
+    const newQ = buildQueueForMode(selectedMode);
+    setMode(selectedMode);
+    setQueue(newQ);
+    setQIndex(0);
+    setHasWon(false);
+    setTimeElapsed(0);
+    setIsTimerPaused(false);
+    setMenuOpen(false);
+    setInstanceKey((k) => k + 1);
+    setScreen("game");
+  }, []);
+
   const goToNextRandomLevel = React.useCallback(() => {
     setMenuOpen(false);
     setHasWon(false);
@@ -336,21 +363,15 @@ function App() {
     setQIndex((prev) => {
       const next = prev + 1;
       if (next >= queue.length) {
-        const newQ = buildEscalatingRandomQueue();
+        const newQ = buildQueueForMode(mode);
         setQueue(newQ);
-        try {
-          localStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(newQ));
-          localStorage.setItem(STORAGE_INDEX_KEY, "0");
-        } catch {}
         return 0;
       }
-      try {
-        localStorage.setItem(STORAGE_INDEX_KEY, String(next));
-      } catch {}
       return next;
     });
     setInstanceKey((k) => k + 1);
-  }, [queue.length]);
+    setScreen("game");
+  }, [queue.length, mode]);
 
   const handleResetBoard = React.useCallback(
     (e) => {
@@ -370,21 +391,29 @@ function App() {
     [hasWon]
   );
 
-  const handleRestartProgression = React.useCallback(() => {
-    const newQ = buildEscalatingRandomQueue();
-    setQueue(newQ);
-    setQIndex(0);
-    setHasWon(false);
-    setTimeElapsed(0);
-    setMenuOpen(false);
-    setInstanceKey((k) => k + 1);
-    try {
-      localStorage.setItem(STORAGE_QUEUE_KEY, JSON.stringify(newQ));
-      localStorage.setItem(STORAGE_INDEX_KEY, "0");
-    } catch {}
-  }, []);
+  const markCurrentSolved = React.useCallback(() => {
+    setHasWon(true);
+    setSolvedIds((prev) => {
+      const next = new Set(prev);
+      next.add(currentPuzzle.puzzleId);
+      saveSolvedSet(next);
+      return next;
+    });
+  }, [currentPuzzle.puzzleId]);
 
   const isEn = locale === "en_US";
+
+  // Count solved per difficulty
+  const solvedCounts = React.useMemo(() => {
+    const counts = { All: 0, Easy: 0, Medium: 0, Hard: 0, Expert: 0 };
+    for (const p of PUZZLES_BANK) {
+      if (solvedIds.has(p.puzzleId)) {
+        counts.All++;
+        if (counts[p.difficulty] !== undefined) counts[p.difficulty]++;
+      }
+    }
+    return counts;
+  }, [solvedIds]);
 
   return jsx(ThemeProvider, {
     theme: "light",
@@ -396,463 +425,689 @@ function App() {
         children: jsx(I18nContext.Provider, {
           value: i18nValue,
           children: jsxs("div", {
-          className: "bsjl5q",
-          "data-sdui-screen":
-            "com.linkedin.sdui.flagshipnav.games.GamePlayMobileWebPage",
-          children: [
-            jsx("div", {
-              className:
-                "bsjlkx bsjlk3 bsjlky bsjlkv bsjay6 bsjhtz bsja29 bsjh97 bsjlk1 bsjlk6 bsjl5q",
-              children: jsx("div", {
+            className: "bsjl5q",
+            "data-sdui-screen":
+              "com.linkedin.sdui.flagshipnav.games.GamePlayMobileWebPage",
+            children: [
+              jsx("div", {
                 className:
-                  "bsjlk9 bsjlkl bsjlk8 bsjay6 bsjhtr bsja29 bsjh97 bsjlla bsjlld bsjllf bsjlli bsjllj bsjlll bsjlln bsjl5q",
-                "data-layout-grid": "",
-                children: jsxs("div", {
+                  "bsjlkx bsjlk3 bsjlky bsjlkv bsjay6 bsjhtz bsja29 bsjh97 bsjlk1 bsjlk6 bsjl5q",
+                children: jsx("div", {
                   className:
-                    "bsjlmk bsjlkm bsjlmj bsjay6 bsjhtr bsja29 bsjj2d bsjlmm bsjlmp bsjlmq bsjlkp bsjl5q",
-                  children: [
-                    // EXACT LINKEDIN TOOLBAR
-                    jsx("div", {
-                      className:
-                        "bsjlmx bsjlmu bsjj49 bsjh93 bsjlmy bsjlmv bsjj22 bsjk4d bsjl5q",
-                      role: "toolbar",
-                      children: jsxs("div", {
+                    "bsjlk9 bsjlkl bsjlk8 bsjay6 bsjhtr bsja29 bsjh97 bsjlla bsjlld bsjllf bsjlli bsjllj bsjlll bsjlln bsjl5q",
+                  "data-layout-grid": "",
+                  children: jsxs("div", {
+                    className:
+                      "bsjlmk bsjlkm bsjlmj bsjay6 bsjhtr bsja29 bsjj2d bsjlmm bsjlmp bsjlmq bsjlkp bsjl5q",
+                    children: [
+                      // TOOLBAR
+                      jsx("div", {
                         className:
-                          "bsjl5w bsjayy bsjiun bsjj1t bsjj08 bsjj1j bsjixb bsjia7 bsjdh7 bsjl5q",
-                        style: {
-                          "--bsjbfl":
-                            "light-dark(rgb(248 250 253 / 1), rgb(27 31 35 / 1))",
-                        },
-                        children: [
-                          jsxs("div", {
-                            className:
-                              "bsjldd bsjldu bsja2a bsjht3 bsjia7 bsjl5q",
-                            children: [
-                              jsxs("div", {
-                                className:
-                                  "bsjayy bsjiu3 bsjj1v bsjj03 bsjj1j bsjixb bsjia7 bsjk56 bsjk5x bsjl5q",
-                                children: [
-                                  // Top-left button: Next random level
-                                  jsx("div", {
-                                    className:
-                                      "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjiyn bsjl5q",
-                                    children: jsx("button", {
+                          "bsjlmx bsjlmu bsjj49 bsjh93 bsjlmy bsjlmv bsjj22 bsjk4d bsjl5q",
+                        role: "toolbar",
+                        children: jsxs("div", {
+                          className:
+                            "bsjl5w bsjayy bsjiun bsjj1t bsjj08 bsjj1j bsjixb bsjia7 bsjdh7 bsjl5q",
+                          style: {
+                            "--bsjbfl":
+                              "light-dark(rgb(248 250 253 / 1), rgb(27 31 35 / 1))",
+                          },
+                          children: [
+                            jsxs("div", {
+                              className:
+                                "bsjldd bsjldu bsja2a bsjht3 bsjia7 bsjl5q",
+                              children: [
+                                jsxs("div", {
+                                  className:
+                                    "bsjayy bsjiu3 bsjj1v bsjj03 bsjj1j bsjixb bsjia7 bsjk56 bsjk5x bsjl5q",
+                                  children: [
+                                    // Top-left button: Back to Hub (when in game) or Resume Game (when in hub)
+                                    jsx("div", {
                                       className:
-                                        "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d",
-                                      type: "button",
-                                      "aria-label": isEn ? "Next level" : "Siguiente nivel",
-                                      onClick: goToNextRandomLevel,
-                                      children: jsx("span", {
+                                        "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjiyn bsjl5q",
+                                      children:
+                                        screen === "game"
+                                          ? jsx("button", {
+                                              className:
+                                                "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d",
+                                              type: "button",
+                                              "aria-label": isEn ? "Back" : "Volver",
+                                              onClick: () => {
+                                                setMenuOpen(false);
+                                                setIsTimerPaused(true);
+                                                setScreen("hub");
+                                              },
+                                              children: jsx("span", {
+                                                className:
+                                                  "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyh bsjlyp bsjlyn bsjlym bsjlx9 bsjh13 bsjly0 bsjly4 bsjly6 bsjly7",
+                                                children: jsx(DesignSystemImage, {
+                                                  display: "block",
+                                                  imageId: 430,
+                                                  "aria-label": "",
+                                                  "aria-hidden": true,
+                                                  enableForcedColorStyles: false,
+                                                  width: "3x",
+                                                  minWidth: "3x",
+                                                  height: "3x",
+                                                  minHeight: "3x",
+                                                  className: "bsjl9m",
+                                                }),
+                                              }),
+                                            })
+                                          : jsx("div", {
+                                              style: { width: "40px", height: "40px" },
+                                            }),
+                                    }),
+                                    // Top-right settings gear button
+                                    jsx("div", {
+                                      className:
+                                        "bsjayy bsjiu3 bsjj1t bsjj08 bsjj1j bsjiy3 bsjl5q",
+                                      children: jsxs("div", {
                                         className:
-                                          "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyh bsjlyp bsjlyn bsjlym bsjlx9 bsjh13 bsjly0 bsjly4 bsjly6 bsjly7",
-                                        children: jsx(DesignSystemImage, {
-                                          display: "block",
-                                          imageId: 430,
-                                          "aria-label": "",
-                                          "aria-hidden": true,
-                                          enableForcedColorStyles: false,
-                                          width: "3x",
-                                          minWidth: "3x",
-                                          height: "3x",
-                                          minHeight: "3x",
-                                          className: "bsjl9m",
+                                          "bsja2a bsjhtn bsjiaf bsjl5q",
+                                        style: { position: "relative" },
+                                        children: [
+                                          jsx("button", {
+                                            className:
+                                              "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjk56 bsjk5x",
+                                            type: "button",
+                                            "aria-label": isEn ? "Settings" : "Ajustes",
+                                            onClick: () => setMenuOpen((o) => !o),
+                                            children: jsx("span", {
+                                              className:
+                                                "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyh bsjlyp bsjlyn bsjlym bsjlx9 bsjh13 bsjly0 bsjly4 bsjly6 bsjly7",
+                                              children: jsx(DesignSystemImage, {
+                                                display: "block",
+                                                imageId: 377,
+                                                "aria-label": "",
+                                                "aria-hidden": true,
+                                                enableForcedColorStyles: false,
+                                                width: "3x",
+                                                minWidth: "3x",
+                                                height: "3x",
+                                                minHeight: "3x",
+                                                className: "bsjl9m",
+                                              }),
+                                            }),
+                                          }),
+                                          menuOpen &&
+                                            jsxs("div", {
+                                              className:
+                                                "bsjl5w bsjayy bsjiun bsjj1t bsjj08 bsjj1j bsjixb bsjl5q",
+                                              role: "menu",
+                                              style: {
+                                                position: "absolute",
+                                                top: "100%",
+                                                right: 0,
+                                                zIndex: 1000,
+                                                width: "250px",
+                                                backgroundColor: "#FFFFFF",
+                                                borderRadius: "8px",
+                                                boxShadow:
+                                                  "0 4px 16px rgba(0, 0, 0, 0.16)",
+                                                border: "1px solid rgba(0,0,0,0.08)",
+                                                overflow: "hidden",
+                                              },
+                                              children: [
+                                                // 1. Toggle Clock
+                                                jsx("button", {
+                                                  type: "button",
+                                                  role: "menuitem",
+                                                  onClick: () => {
+                                                    setIsTimerHidden((h) => !h);
+                                                    setMenuOpen(false);
+                                                  },
+                                                  style: {
+                                                    width: "100%",
+                                                    border: "none",
+                                                    background: "transparent",
+                                                    cursor: "pointer",
+                                                    textAlign: "left",
+                                                  },
+                                                  children: jsxs("div", {
+                                                    className:
+                                                      "bsjivr bsjlcb bsjlcs bsjldc bsjldt bsjayy bsjiu3 bsjj1v bsjj03 bsjj1j bsjixb bsjl5q",
+                                                    children: [
+                                                      jsxs("div", {
+                                                        className:
+                                                          "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
+                                                        style: { gap: "8px" },
+                                                        children: [
+                                                          jsx(DesignSystemImage, {
+                                                            display: "block",
+                                                            imageId: 170,
+                                                            "aria-label": "",
+                                                            "aria-hidden": true,
+                                                            enableForcedColorStyles: false,
+                                                            className: "bsjl9m",
+                                                          }),
+                                                          jsx("p", {
+                                                            className:
+                                                              "bsjlje bsjlo1 bsjivr bsjlal bsjlis bsjgoj bsjljc bsjlrm",
+                                                            children: isEn
+                                                              ? "Show clock"
+                                                              : "Mostrar reloj",
+                                                          }),
+                                                        ],
+                                                      }),
+                                                      jsx("span", {
+                                                        className:
+                                                          "bsjlje bsjlo1 bsjhn4",
+                                                        style: {
+                                                          color: !isTimerHidden
+                                                            ? "#0073B1"
+                                                            : "#666666",
+                                                        },
+                                                        children: !isTimerHidden
+                                                          ? isEn
+                                                            ? "On"
+                                                            : "Sí"
+                                                          : "No",
+                                                      }),
+                                                    ],
+                                                  }),
+                                                }),
+                                                // 2. Skip to Next Random Level
+                                                jsx("button", {
+                                                  type: "button",
+                                                  role: "menuitem",
+                                                  onClick: goToNextRandomLevel,
+                                                  style: {
+                                                    width: "100%",
+                                                    border: "none",
+                                                    background: "transparent",
+                                                    cursor: "pointer",
+                                                    textAlign: "left",
+                                                  },
+                                                  children: jsx("div", {
+                                                    className:
+                                                      "bsjivr bsjlcd bsjlcu bsjldd bsjldu bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
+                                                    children: jsx("p", {
+                                                      className:
+                                                        "bsjlje bsjlo1 bsjlis bsjgoj bsjljc bsjlrm",
+                                                      children: isEn
+                                                        ? "New random level"
+                                                        : "Nuevo nivel al azar",
+                                                    }),
+                                                  }),
+                                                }),
+                                                // 3. Go to Hub
+                                                screen === "game" &&
+                                                  jsx("button", {
+                                                    type: "button",
+                                                    role: "menuitem",
+                                                    onClick: () => {
+                                                      setMenuOpen(false);
+                                                      setIsTimerPaused(true);
+                                                      setScreen("hub");
+                                                    },
+                                                    style: {
+                                                      width: "100%",
+                                                      border: "none",
+                                                      background: "transparent",
+                                                      cursor: "pointer",
+                                                      textAlign: "left",
+                                                    },
+                                                    children: jsx("div", {
+                                                      className:
+                                                        "bsjivr bsjlcd bsjlcu bsjldd bsjldu bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
+                                                      children: jsx("p", {
+                                                        className:
+                                                          "bsjlje bsjlo1 bsjlis bsjgoj bsjljc bsjlrm",
+                                                        children: isEn
+                                                          ? "Difficulty menu"
+                                                          : "Elegir dificultad",
+                                                      }),
+                                                    }),
+                                                  }),
+                                                // 4. Language Toggle (ES / EN)
+                                                jsx("button", {
+                                                  type: "button",
+                                                  role: "menuitem",
+                                                  onClick: () => {
+                                                    setLocale((l) =>
+                                                      l === "es_ES"
+                                                        ? "en_US"
+                                                        : "es_ES"
+                                                    );
+                                                    setMenuOpen(false);
+                                                  },
+                                                  style: {
+                                                    width: "100%",
+                                                    border: "none",
+                                                    background: "transparent",
+                                                    cursor: "pointer",
+                                                    textAlign: "left",
+                                                  },
+                                                  children: jsx("div", {
+                                                    className:
+                                                      "bsjivr bsjlcb bsjlcs bsjldc bsjldt bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjix7 bsjl5q",
+                                                    children: jsx("p", {
+                                                      className:
+                                                        "bsjlje bsjlo1 bsjlis bsjgoj bsjljc bsjlrm",
+                                                      children: isEn
+                                                        ? "Language: English"
+                                                        : "Idioma: Español",
+                                                    }),
+                                                  }),
+                                                }),
+                                              ],
+                                            }),
+                                        ],
+                                      }),
+                                    }),
+                                  ],
+                                }),
+                                // Patches title (without LinkedIn logo)
+                                jsx("div", {
+                                  className:
+                                    "bsjl5w bsjayy bsjiun bsjj1t bsjj03 bsjj1j bsjixb bsjk56 bsjk5x bsjl5q",
+                                  children: jsx("div", {
+                                    className:
+                                      "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
+                                    children: jsx("div", {
+                                      className: "bsjlis bsjgoj bsjljc",
+                                      children: jsx("p", {
+                                        className:
+                                          "bsjlje bsjlo7 bsjlr6 bsjlr5 bsjlr4 bsja29 bsjljd bsjht3 bsjlrm",
+                                        children: jsx("span", {
+                                          children: "Patches",
                                         }),
                                       }),
                                     }),
                                   }),
-                                  // Top-right settings gear button
+                                }),
+                              ],
+                            }),
+                            // Second toolbar row (only visible during game): Timer + Restablecer button
+                            screen === "game" &&
+                              jsxs("div", {
+                                className:
+                                  "bsjldd bsjldu bsjayy bsjiu3 bsjj1v bsjj03 bsjj1j bsjixb bsjia7 bsjl5q",
+                                children: [
+                                  jsx("div", {
+                                    className: "bsja2a bsjht3 bsjiaf bsjl5q",
+                                    children:
+                                      !isTimerHidden &&
+                                      jsxs("div", {
+                                        className:
+                                          "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjk56 bsjk5x bsjl5q",
+                                        children: [
+                                          jsx(DesignSystemImage, {
+                                            display: "block",
+                                            imageId: 171,
+                                            "aria-label": "Clock",
+                                            "aria-hidden": false,
+                                            enableForcedColorStyles: false,
+                                            offsetEnd: "0.5x",
+                                            height: "2x",
+                                            width: "2x",
+                                            flexShrink: 0,
+                                            className: "bsjl9m",
+                                          }),
+                                          jsx(
+                                            Timer,
+                                            {
+                                              timeInMs: timeElapsed,
+                                              isRunning: !hasWon && !isTimerPaused,
+                                              onTimeUpdate: (ms) =>
+                                                setTimeElapsed(Number(ms)),
+                                              alignSelf: "center",
+                                            },
+                                            `timer-${currentPuzzle.puzzleId}-${instanceKey}`
+                                          ),
+                                        ],
+                                      }),
+                                  }),
                                   jsx("div", {
                                     className:
-                                      "bsjayy bsjiu3 bsjj1t bsjj08 bsjj1j bsjiy3 bsjl5q",
-                                    children: jsxs("div", {
+                                      "bsjivr bsja2a bsjht3 bsjiaf bsjl5q",
+                                    children: jsx("button", {
+                                      type: "button",
                                       className:
-                                        "bsja2a bsjhtn bsjiaf bsjl5q",
-                                      style: { position: "relative" },
-                                      children: [
-                                        jsx("button", {
+                                        "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxp bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjiaf bsjk57 bsjk5x",
+                                      onClick: handleResetBoard,
+                                      children: jsx("span", {
+                                        className:
+                                          "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyf bsjlyp bsjlyl bsjlx8 bsjh1v bsjlyw",
+                                        children: jsx("span", {
                                           className:
-                                            "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjk56 bsjk5x",
-                                          type: "button",
-                                          "aria-label": isEn ? "Settings" : "Ajustes",
-                                          onClick: () => setMenuOpen((o) => !o),
-                                          children: jsx("span", {
-                                            className:
-                                              "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyh bsjlyp bsjlyn bsjlym bsjlx9 bsjh13 bsjly0 bsjly4 bsjly6 bsjly7",
-                                            children: jsx(DesignSystemImage, {
-                                              display: "block",
-                                              imageId: 377,
-                                              "aria-label": "",
-                                              "aria-hidden": true,
-                                              enableForcedColorStyles: false,
-                                              width: "3x",
-                                              minWidth: "3x",
-                                              height: "3x",
-                                              minHeight: "3x",
-                                              className: "bsjl9m",
-                                            }),
-                                          }),
+                                            "bsjlje bsjlo1 bsjhn4 bsjljc bsjly8",
+                                          children: isEn ? "Reset" : "Restablecer",
                                         }),
-                                        menuOpen &&
-                                          jsxs("div", {
-                                            className:
-                                              "bsjl5w bsjayy bsjiun bsjj1t bsjj08 bsjj1j bsjixb bsjl5q",
-                                            role: "menu",
-                                            style: {
-                                              position: "absolute",
-                                              top: "100%",
-                                              right: 0,
-                                              zIndex: 1000,
-                                              width: "260px",
-                                              backgroundColor: "#FFFFFF",
-                                              borderRadius: "8px",
-                                              boxShadow:
-                                                "0 4px 16px rgba(0, 0, 0, 0.16)",
-                                              border: "1px solid rgba(0,0,0,0.08)",
-                                              overflow: "hidden",
-                                            },
-                                            children: [
-                                              // 1. Toggle Clock
-                                              jsx("button", {
-                                                type: "button",
-                                                role: "menuitem",
-                                                onClick: () => {
-                                                  setIsTimerHidden((h) => !h);
-                                                  setMenuOpen(false);
-                                                },
-                                                style: {
-                                                  width: "100%",
-                                                  border: "none",
-                                                  background: "transparent",
-                                                  cursor: "pointer",
-                                                  textAlign: "left",
-                                                },
-                                                children: jsxs("div", {
-                                                  className:
-                                                    "bsjivr bsjlcb bsjlcs bsjldc bsjldt bsjayy bsjiu3 bsjj1v bsjj03 bsjj1j bsjixb bsjl5q",
-                                                  children: [
-                                                    jsxs("div", {
-                                                      className:
-                                                        "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
-                                                      style: { gap: "8px" },
-                                                      children: [
-                                                        jsx(DesignSystemImage, {
-                                                          display: "block",
-                                                          imageId: 170,
-                                                          "aria-label": "",
-                                                          "aria-hidden": true,
-                                                          enableForcedColorStyles: false,
-                                                          className: "bsjl9m",
-                                                        }),
-                                                        jsx("p", {
-                                                          className:
-                                                            "bsjlje bsjlo1 bsjivr bsjlal bsjlis bsjgoj bsjljc bsjlrm",
-                                                          children: isEn
-                                                            ? "Show clock"
-                                                            : "Mostrar reloj",
-                                                        }),
-                                                      ],
-                                                    }),
-                                                    jsx("span", {
-                                                      className:
-                                                        "bsjlje bsjlo1 bsjhn4",
-                                                      style: {
-                                                        color: !isTimerHidden
-                                                          ? "#0073B1"
-                                                          : "#666666",
-                                                      },
-                                                      children: !isTimerHidden
-                                                        ? isEn
-                                                          ? "On"
-                                                          : "Sí"
-                                                        : "No",
-                                                    }),
-                                                  ],
-                                                }),
-                                              }),
-                                              // 2. Skip to Next Random Level
-                                              jsx("button", {
-                                                type: "button",
-                                                role: "menuitem",
-                                                onClick: goToNextRandomLevel,
-                                                style: {
-                                                  width: "100%",
-                                                  border: "none",
-                                                  background: "transparent",
-                                                  cursor: "pointer",
-                                                  textAlign: "left",
-                                                },
-                                                children: jsx("div", {
-                                                  className:
-                                                    "bsjivr bsjlcd bsjlcu bsjldd bsjldu bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
-                                                  children: jsx("p", {
-                                                    className:
-                                                      "bsjlje bsjlo1 bsjlis bsjgoj bsjljc bsjlrm",
-                                                    children: isEn
-                                                      ? "Next random puzzle"
-                                                      : "Siguiente nivel al azar",
-                                                  }),
-                                                }),
-                                              }),
-                                              // 3. Language Toggle (ES / EN)
-                                              jsx("button", {
-                                                type: "button",
-                                                role: "menuitem",
-                                                onClick: () => {
-                                                  setLocale((l) =>
-                                                    l === "es_ES"
-                                                      ? "en_US"
-                                                      : "es_ES"
-                                                  );
-                                                  setMenuOpen(false);
-                                                },
-                                                style: {
-                                                  width: "100%",
-                                                  border: "none",
-                                                  background: "transparent",
-                                                  cursor: "pointer",
-                                                  textAlign: "left",
-                                                },
-                                                children: jsx("div", {
-                                                  className:
-                                                    "bsjivr bsjlcd bsjlcu bsjldd bsjldu bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
-                                                  children: jsx("p", {
-                                                    className:
-                                                      "bsjlje bsjlo1 bsjlis bsjgoj bsjljc bsjlrm",
-                                                    children: isEn
-                                                      ? "Language: English"
-                                                      : "Idioma: Español",
-                                                  }),
-                                                }),
-                                              }),
-                                              // 4. Restart Easy -> Hard run
-                                              jsx("button", {
-                                                type: "button",
-                                                role: "menuitem",
-                                                onClick: handleRestartProgression,
-                                                style: {
-                                                  width: "100%",
-                                                  border: "none",
-                                                  background: "transparent",
-                                                  cursor: "pointer",
-                                                  textAlign: "left",
-                                                },
-                                                children: jsx("div", {
-                                                  className:
-                                                    "bsjivr bsjlcb bsjlcs bsjldc bsjldt bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjix7 bsjl5q",
-                                                  children: jsx("p", {
-                                                    className:
-                                                      "bsjlje bsjlo1 bsjlis bsjgoj bsjljc bsjlrm",
-                                                    children: isEn
-                                                      ? "Restart (Easy → Hard)"
-                                                      : "Reiniciar (Fácil → Difícil)",
-                                                  }),
-                                                }),
-                                              }),
-                                            ],
-                                          }),
-                                      ],
+                                      }),
                                     }),
                                   }),
                                 ],
                               }),
-                              // Patches title (without LinkedIn logo)
+                          ],
+                        }),
+                      }),
+
+                      // WORKSPACE: HUB SCREEN OR GAME SCREEN
+                      jsx("main", {
+                        className:
+                          "bsjlm5 bsjljs bsjlm4 bsjj07 bsjay6 bsja3d bsja3i bsjj2d bsjlm6 bsjl5q",
+                        id: "workspace",
+                        tabIndex: -1,
+                        onClick: () => {
+                          if (menuOpen) setMenuOpen(false);
+                        },
+                        children: jsxs("div", {
+                          className:
+                            "bsjl5w bsjayy bsjiun bsjj1t bsjj08 bsjj1j bsjixb bsjhub bsjia7 bsjdh7 bsjl5q",
+                          style: {
+                            "--bsjbfl":
+                              "light-dark(rgb(248 250 253 / 1), rgb(27 31 35 / 1))",
+                          },
+                          children: [
+                            // HUB SCREEN
+                            screen === "hub" &&
                               jsx("div", {
-                                className:
-                                  "bsjl5w bsjayy bsjiun bsjj1t bsjj03 bsjj1j bsjixb bsjk56 bsjk5x bsjl5q",
-                                children: jsx("div", {
-                                  className:
-                                    "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjl5q",
-                                  children: jsx("div", {
-                                    className: "bsjlis bsjgoj bsjljc",
-                                    children: jsx("p", {
-                                      className:
-                                        "bsjlje bsjlo7 bsjlr6 bsjlr5 bsjlr4 bsja29 bsjljd bsjht3 bsjlrm",
+                                className: "bsja2a bsjht3 bsjia7 bsjl5q",
+                                style: {
+                                  maxWidth: "420px",
+                                  width: "100%",
+                                  margin: "0 auto",
+                                  padding: "16px 16px 32px",
+                                },
+                                children: jsxs("div", {
+                                  className: "bsjm48 bsjaet",
+                                  style: {
+                                    padding: "24px 20px",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: "18px",
+                                  },
+                                  children: [
+                                    // Mini Patches Board Icon inside Hub
+                                    jsx("img", {
+                                      src: "./icon.svg",
+                                      alt: "Patches",
+                                      style: {
+                                        width: "88px",
+                                        height: "88px",
+                                        borderRadius: "20px",
+                                      },
+                                    }),
+
+                                    // Solved progress pill
+                                    jsx("div", {
+                                      style: {
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        padding: "4px 14px",
+                                        borderRadius: "999px",
+                                        backgroundColor: "rgb(248, 250, 253)",
+                                        border: "1px solid #C3C3C3",
+                                      },
                                       children: jsx("span", {
-                                        children: "Patches",
+                                        className: "bsjlje bsjlo1 bsjhn4",
+                                        children: isEn
+                                          ? `${solvedCounts.All} / ${PUZZLES_BANK.length} levels`
+                                          : `${solvedCounts.All} / ${PUZZLES_BANK.length} niveles`,
                                       }),
                                     }),
-                                  }),
+
+                                    // Difficulty Selector Pills
+                                    jsxs("div", {
+                                      style: {
+                                        width: "100%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "8px",
+                                      },
+                                      children: DIFF_MODES.map((dm) => {
+                                        const active = mode === dm.id;
+                                        const solvedInTier =
+                                          dm.id === "Progressive"
+                                            ? solvedCounts.All
+                                            : solvedCounts[dm.id] || 0;
+                                        return jsx(
+                                          "button",
+                                          {
+                                            type: "button",
+                                            onClick: () => setMode(dm.id),
+                                            style: {
+                                              width: "100%",
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "space-between",
+                                              padding: "12px 16px",
+                                              borderRadius: "999px",
+                                              border: active
+                                                ? `2px solid ${dm.color}`
+                                                : "1px solid #C3C3C3",
+                                              backgroundColor: active
+                                                ? `${dm.color}18`
+                                                : "#FFFFFF",
+                                              cursor: "pointer",
+                                              transition: "all 120ms ease",
+                                            },
+                                            children: [
+                                              jsxs("span", {
+                                                style: {
+                                                  display: "inline-flex",
+                                                  alignItems: "center",
+                                                  gap: "10px",
+                                                },
+                                                children: [
+                                                  jsx("span", {
+                                                    style: {
+                                                      width: "14px",
+                                                      height: "14px",
+                                                      borderRadius: "4px",
+                                                      backgroundColor: dm.color,
+                                                      display: "inline-block",
+                                                    },
+                                                  }),
+                                                  jsx("span", {
+                                                    className:
+                                                      "bsjlje bsjlo1 bsjhn4",
+                                                    style: {
+                                                      color: "#1B1F23",
+                                                      fontWeight: active
+                                                        ? "700"
+                                                        : "600",
+                                                    },
+                                                    children: isEn
+                                                      ? dm.en
+                                                      : dm.es,
+                                                  }),
+                                                ],
+                                              }),
+                                              jsx("span", {
+                                                className: "bsjlje bsjlo1",
+                                                style: {
+                                                  color: "#666666",
+                                                  fontSize: "13px",
+                                                },
+                                                children: `${solvedInTier} / ${dm.count}`,
+                                              }),
+                                            ],
+                                          },
+                                          dm.id
+                                        );
+                                      }),
+                                    }),
+
+                                    // Action Buttons: Jugar (New game in selected mode) & Continuar (Resume active board)
+                                    jsxs("div", {
+                                      style: {
+                                        width: "100%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "10px",
+                                        marginTop: "4px",
+                                      },
+                                      children: [
+                                        jsx("button", {
+                                          type: "button",
+                                          className:
+                                            "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjia7 bsjk52 bsjk5x",
+                                          onClick: () =>
+                                            startNewGameWithMode(mode),
+                                          children: jsx("span", {
+                                            className:
+                                              "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlye bsjlyo bsjlym bsjlx9 bsjh13 bsjlyv",
+                                            style: {
+                                              "--bsjlxr": "var(--bsjb7)",
+                                              "--bsjlxs": "var(--bsjb8)",
+                                              "--bsjlxt": "var(--bsjb9)",
+                                              "--bsjlxu": "var(--bsjcg)",
+                                              "--bsjlxv": "var(--bsjez)",
+                                              "--bsjlxz": "var(--bsjez)",
+                                              "--bsjlxw": "var(--bsje0)",
+                                              "--bsjlx0": "var(--bsje0)",
+                                              "--bsjlxx": "var(--bsje1)",
+                                              "--bsjlx1": "var(--bsje1)",
+                                              "--bsjlxy": "var(--bsjey)",
+                                            },
+                                            children: jsx("span", {
+                                              className:
+                                                "bsjlje bsjlo3 bsjhn4 bsjljc bsjly8",
+                                              children: isEn ? "Play" : "Jugar",
+                                            }),
+                                          }),
+                                        }),
+                                        !hasWon &&
+                                          timeElapsed > 0 &&
+                                          jsx("button", {
+                                            type: "button",
+                                            className:
+                                              "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxp bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjia7 bsjk57 bsjk5x",
+                                            onClick: () => {
+                                              setIsTimerPaused(false);
+                                              setScreen("game");
+                                            },
+                                            children: jsx("span", {
+                                              className:
+                                                "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyf bsjlyp bsjlyl bsjlx8 bsjh1v bsjlyw",
+                                              style: { width: "100%" },
+                                              children: jsx("span", {
+                                                className:
+                                                  "bsjlje bsjlo1 bsjhn4 bsjljc bsjly8",
+                                                children: isEn
+                                                  ? "Continue puzzle"
+                                                  : "Continuar partida",
+                                              }),
+                                            }),
+                                          }),
+                                      ],
+                                    }),
+                                  ],
                                 }),
                               }),
-                            ],
-                          }),
-                          // Second toolbar row: Timer + Restablecer button
-                          jsxs("div", {
-                            className:
-                              "bsjldd bsjldu bsjayy bsjiu3 bsjj1v bsjj03 bsjj1j bsjixb bsjia7 bsjl5q",
-                            children: [
-                              jsx("div", {
-                                className: "bsja2a bsjht3 bsjiaf bsjl5q",
-                                children:
-                                  !isTimerHidden &&
-                                  jsxs("div", {
-                                    className:
-                                      "bsjayy bsjiu3 bsjj1t bsjj03 bsjj1j bsjixb bsjk56 bsjk5x bsjl5q",
-                                    children: [
-                                      jsx(DesignSystemImage, {
-                                        display: "block",
-                                        imageId: 171,
-                                        "aria-label": "Clock",
-                                        "aria-hidden": false,
-                                        enableForcedColorStyles: false,
-                                        offsetEnd: "0.5x",
-                                        height: "2x",
-                                        width: "2x",
-                                        flexShrink: 0,
-                                        className: "bsjl9m",
-                                      }),
-                                      jsx(
-                                        Timer,
-                                        {
-                                          timeInMs: timeElapsed,
-                                          isRunning: !hasWon && !isTimerPaused,
-                                          onTimeUpdate: (ms) =>
-                                            setTimeElapsed(Number(ms)),
-                                          alignSelf: "center",
-                                        },
-                                        `timer-${currentPuzzle.puzzleId}-${instanceKey}`
-                                      ),
-                                    ],
-                                  }),
-                              }),
+
+                            // GAME SCREEN (kept mounted when in game; hidden when in hub so state is preserved if user taps Continuar!)
+                            jsx("div", {
+                              className: "bsja2a bsjht3 bsjia7 bsjl5q",
+                              style:
+                                screen === "hub" ? { display: "none" } : undefined,
+                              children: jsx(
+                                Patches,
+                                {
+                                  game: gamePayload,
+                                  timeElapsed: 0,
+                                  isMobile: true,
+                                  isBonusGame: false,
+                                  isHintCooldownDisabled: true,
+                                  isReadFromLocalStorageDisabled: true,
+                                  isWriteToLocalStorageDisabled: true,
+                                  isPatchesRevealFirstRegionLixEnabled: false,
+                                  isPatchesCorrectSpotFlashLixEnabled: true,
+                                  isCorrectionHintNoCooldownEnabled: true,
+                                  isCorrectionHintChainedEnabled: true,
+                                  winCount: 33,
+                                  totalPlaysCount: 33,
+                                  offsetBottom: "12x",
+                                  width: "fillAvailable",
+                                  maxWidth: "68x",
+                                  location: "topCenter",
+                                  isolation: "isolate",
+                                  getIsTimerHidden: () => isTimerHidden,
+                                  getVisibilitySetting: () => "CONNECTIONS",
+                                  getGameScoreVisibilitySetting: () =>
+                                    "CONNECTIONS",
+                                  onUpdateIsTimerHidden: (val) =>
+                                    setIsTimerHidden(!!val),
+                                  onUpdateIsUndoDisabled: () => {},
+                                  onUpdateVisibilitySettings: () => {},
+                                  onSettingsDismiss: () => {},
+                                  onUpdateTimeElapsed: () => {},
+                                  onError: () => {},
+                                  onGameReady: () => {},
+                                  onGameAction: () => {},
+                                  onFirstBoardAction: () => {},
+                                  onOpenTutorialInfo: () => {},
+                                  onUpdateBoardState: () => {},
+                                  onUpdateNumRedraws: () => {},
+                                  onGameMistakeAction: () => {},
+                                  onUpdateHasWon: (won) => {
+                                    if (won) markCurrentSolved();
+                                  },
+                                  onGameComplete: () => {
+                                    markCurrentSolved();
+                                  },
+                                  onGameBlur: () => setIsTimerPaused(true),
+                                  onGameFocus: () => {
+                                    if (screen === "game")
+                                      setIsTimerPaused(false);
+                                  },
+                                },
+                                `patches-${currentPuzzle.puzzleId}-${instanceKey}`
+                              ),
+                            }),
+
+                            // Bottom completion button bar on Game Screen
+                            screen === "game" &&
+                              hasWon &&
                               jsx("div", {
                                 className:
-                                  "bsjivr bsja2a bsjht3 bsjiaf bsjl5q",
+                                  "bsjkmd bsjlch bsjlcy bsjldd bsjldu bsjj15 bsjkdx bsjk4l bsja2a bsjhtn bsjia7 bsjbtq bsjl5q",
                                 children: jsx("button", {
                                   type: "button",
                                   className:
-                                    "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxp bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjiaf bsjk57 bsjk5x",
-                                  onClick: handleResetBoard,
+                                    "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjia7 bsjk52 bsjk5x",
+                                  onClick: goToNextRandomLevel,
                                   children: jsx("span", {
                                     className:
-                                      "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlyf bsjlyp bsjlyl bsjlx8 bsjh1v bsjlyw",
+                                      "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlye bsjlyo bsjlym bsjlx9 bsjh13 bsjlyv",
+                                    style: {
+                                      "--bsjlxr": "var(--bsjb7)",
+                                      "--bsjlxs": "var(--bsjb8)",
+                                      "--bsjlxt": "var(--bsjb9)",
+                                      "--bsjlxu": "var(--bsjcg)",
+                                      "--bsjlxv": "var(--bsjez)",
+                                      "--bsjlxz": "var(--bsjez)",
+                                      "--bsjlxw": "var(--bsje0)",
+                                      "--bsjlx0": "var(--bsje0)",
+                                      "--bsjlxx": "var(--bsje1)",
+                                      "--bsjlx1": "var(--bsje1)",
+                                      "--bsjlxy": "var(--bsjey)",
+                                    },
                                     children: jsx("span", {
                                       className:
-                                        "bsjlje bsjlo1 bsjhn4 bsjljc bsjly8",
-                                      children: isEn ? "Reset" : "Restablecer",
+                                        "bsjlje bsjlo3 bsjhn4 bsjljc bsjly8",
+                                      children: isEn
+                                        ? "Next puzzle"
+                                        : "Siguiente nivel",
                                     }),
                                   }),
                                 }),
                               }),
-                            ],
-                          }),
-                        ],
+                          ],
+                        }),
                       }),
-                    }),
-                    // EXACT LINKEDIN WORKSPACE & PATCHES BOARD
-                    jsx("main", {
-                      className:
-                        "bsjlm5 bsjljs bsjlm4 bsjj07 bsjay6 bsja3d bsja3i bsjj2d bsjlm6 bsjl5q",
-                      id: "workspace",
-                      tabIndex: -1,
-                      onClick: () => {
-                        if (menuOpen) setMenuOpen(false);
-                      },
-                      children: jsxs("div", {
-                        className:
-                          "bsjl5w bsjayy bsjiun bsjj1t bsjj08 bsjj1j bsjixb bsjhub bsjia7 bsjdh7 bsjl5q",
-                        style: {
-                          "--bsjbfl":
-                            "light-dark(rgb(248 250 253 / 1), rgb(27 31 35 / 1))",
-                        },
-                        children: [
-                          jsx("div", {
-                            className: "bsja2a bsjht3 bsjia7 bsjl5q",
-                            children: jsx(
-                              Patches,
-                              {
-                                game: gamePayload,
-                                timeElapsed: 0,
-                                isMobile: true,
-                                isBonusGame: false,
-                                isHintCooldownDisabled: true,
-                                isReadFromLocalStorageDisabled: true,
-                                isWriteToLocalStorageDisabled: true,
-                                isPatchesRevealFirstRegionLixEnabled: false,
-                                isPatchesCorrectSpotFlashLixEnabled: true,
-                                isCorrectionHintNoCooldownEnabled: true,
-                                isCorrectionHintChainedEnabled: true,
-                                winCount: 33,
-                                totalPlaysCount: 33,
-                                offsetBottom: "12x",
-                                width: "fillAvailable",
-                                maxWidth: "68x",
-                                location: "topCenter",
-                                isolation: "isolate",
-                                getIsTimerHidden: () => isTimerHidden,
-                                getVisibilitySetting: () => "CONNECTIONS",
-                                getGameScoreVisibilitySetting: () => "CONNECTIONS",
-                                onUpdateIsTimerHidden: (val) =>
-                                  setIsTimerHidden(!!val),
-                                onUpdateIsUndoDisabled: () => {},
-                                onUpdateVisibilitySettings: () => {},
-                                onSettingsDismiss: () => {},
-                                onUpdateTimeElapsed: () => {},
-                                onError: () => {},
-                                onGameReady: () => {},
-                                onGameAction: () => {},
-                                onFirstBoardAction: () => {},
-                                onOpenTutorialInfo: () => {},
-                                onUpdateBoardState: () => {},
-                                onUpdateNumRedraws: () => {},
-                                onGameMistakeAction: () => {},
-                                onUpdateHasWon: (won) => {
-                                  if (won) setHasWon(true);
-                                },
-                                onGameComplete: () => {
-                                  setHasWon(true);
-                                },
-                                onGameBlur: () => setIsTimerPaused(true),
-                                onGameFocus: () => setIsTimerPaused(false),
-                              },
-                              `patches-${currentPuzzle.puzzleId}-${instanceKey}`
-                            ),
-                          }),
-                          hasWon &&
-                            jsx("div", {
-                              className:
-                                "bsjkmd bsjlch bsjlcy bsjldd bsjldu bsjj15 bsjkdx bsjk4l bsja2a bsjhtn bsjia7 bsjbtq bsjl5q",
-                              children: jsx("button", {
-                                type: "button",
-                                className:
-                                  "bsjlxl bsjlxk bsjt0 bsja26 bsjhn4 bsjlho bsjli7 bsjlxq bsjlxn bsjlxm bsjazu bsjj03 bsjj2d bsjia7 bsjk52 bsjk5x",
-                                onClick: goToNextRandomLevel,
-                                children: jsx("span", {
-                                  className:
-                                    "bsjlzr bsjlyb bsjlx6 bsjivr bsjj03 bsjt0 bsja26 bsjazu bsjix7 bsjj1r bsjlho bsjli7 bsjk6u bsjk65 bsjlye bsjlyo bsjlym bsjlx9 bsjh13 bsjlyv",
-                                  style: {
-                                    "--bsjlxr": "var(--bsjb7)",
-                                    "--bsjlxs": "var(--bsjb8)",
-                                    "--bsjlxt": "var(--bsjb9)",
-                                    "--bsjlxu": "var(--bsjcg)",
-                                    "--bsjlxv": "var(--bsjez)",
-                                    "--bsjlxz": "var(--bsjez)",
-                                    "--bsjlxw": "var(--bsje0)",
-                                    "--bsjlx0": "var(--bsje0)",
-                                    "--bsjlxx": "var(--bsje1)",
-                                    "--bsjlx1": "var(--bsje1)",
-                                    "--bsjlxy": "var(--bsjey)",
-                                  },
-                                  children: jsx("span", {
-                                    className:
-                                      "bsjlje bsjlo3 bsjhn4 bsjljc bsjly8",
-                                    children: isEn
-                                      ? "Next puzzle"
-                                      : "Siguiente nivel",
-                                  }),
-                                }),
-                              }),
-                            }),
-                        ],
-                      }),
-                    }),
-                  ],
+                    ],
+                  }),
                 }),
               }),
-            }),
-          ],
+            ],
+          }),
         }),
-      }),
       }),
     }),
   });
